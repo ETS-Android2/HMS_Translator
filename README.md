@@ -10,5 +10,9 @@ HMS Translator is an Android Translator Application which includes the features 
 
 Huawei Mobile Services (HMS) Kits (ML Kit, Ads Kit) were integrated in this project.
 
+![Method 1: Translate text](https://github.com/jxhau/HMS_Translator/blob/master/1-gif.gif)
+
+![Method 2: Translate image](https://github.com/jxhau/HMS_Translator/blob/master/2-gif.gif)
+
 Developed by jxhau. 
 Materials for HSD Workshop.
