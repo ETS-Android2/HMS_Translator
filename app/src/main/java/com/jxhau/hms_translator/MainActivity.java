@@ -94,7 +94,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         bannerView.loadAd(adParam);
 
         // Initialize API Key
-        MLApplication.getInstance().setApiKey("DAEDAN1th4UB+yHzfqawRlkNvkidXG2jw1JtlXmqETI2aCXXrER0z1Vjd/P3gGy4oWidfMActLxsrCvIxjkLbrU6Xo1/TgmhS3l0JQ==");
+        MLApplication.getInstance().setApiKey("your api key");
         // Initialize Text Recognition Settings
         initializeSettings();
 
