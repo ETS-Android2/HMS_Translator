@@ -100,8 +100,6 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
         // select target language
         spinner = findViewById(R.id.spinner);
-        // Create list for spinner: language selection
-        List<String> spinnerList = new ArrayList<String>();
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, R.array.languages_array, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
@@ -172,9 +170,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         public void run() {
             // automatically detect language while app running
             languageDetect();
-            if (System.currentTimeMillis() > (lastTextEdit + delay - 500)){
-                translateText(input.getText().toString());
-            }
+            translateText(input.getText().toString());
         }
     };
 
@@ -229,11 +225,9 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     // settings for text recognition
     private void initializeSettings(){
         List<String> languageList = new ArrayList();
-        languageList.add("en");     // english // iso 639-1 code
-        languageList.add("zh");     // chinese
-        languageList.add("ms");     // bm
-        languageList.add("de");     // german
-        languageList.add("ja");     // japanese
+        for(String lang:languages){
+            languageList.add(lang);
+        }
 
         // Create ML Text Settings
         MLRemoteTextSetting mlRemoteTextSetting = new MLRemoteTextSetting.Factory()
@@ -332,7 +326,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     private void copyToClipBoard(String text){
         try {
             ClipboardManager clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            ClipData clipData = ClipData.newPlainText("Raw text", text);
+            ClipData clipData = ClipData.newPlainText("Translated text", text);
             clipboardManager.setPrimaryClip(clipData);
             Toast.makeText(getBaseContext(), "Copied", Toast.LENGTH_SHORT).show();
         } catch (Exception e){
