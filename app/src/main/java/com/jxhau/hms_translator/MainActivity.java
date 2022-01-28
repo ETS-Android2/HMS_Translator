@@ -95,7 +95,7 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
 
         // 2. Initialize API key
-        MLApplication.getInstance().setApiKey("DAEDANDUoTrQU0fCwSqscyr6xK1CUSQSjWBtu+lRH25CBlQmlPL9nU76y+YqZdTElKtk8XYGKJemou0IZRWku5vQd7mavva3R0TU6Q==");
+        MLApplication.getInstance().setApiKey("your api key");
 
         // 3. Start translation when click on button
         translateBtn.setOnClickListener(new View.OnClickListener() {
