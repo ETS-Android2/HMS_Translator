@@ -1,6 +1,5 @@
 package com.jxhau.hms_translator;
 
-import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
@@ -16,7 +15,6 @@ import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -52,87 +50,80 @@ import java.util.Set;
 
 public class MainActivity extends AppCompatActivity implements AdapterView.OnItemSelectedListener {
 
-    Button imageButton, translateButton, copyButton;
-    TextView textLabel, output;
-    EditText input;
+    // Layout element objects
     Spinner spinner;
-    ImageView arrow;
+    Button imgBtn, translateBtn, copyBtn;
+    EditText input;
+    TextView output, label;
+
 
     // Language detection
-    String[] languages = {"en", "zh", "ms", "de", "ja"};
     String sourceLanguage, targetLanguage;
+    String[] languages = {"en", "zh", "ms", "de", "ja"};
     Handler handler = new Handler();
-    long delay = 500;
-    long lastTextEdit = 0;
+    long delay = 0;
+
 
     // Text recognition
-    MLTextAnalyzer textAnalyzer;
-    MLFrame frame;
     Uri imageUri;
+    MLFrame frame;
     ProgressDialog progressDialog;
-    String recognizedText;
+    MLTextAnalyzer analyzer;
 
-    // Banner Ads
+
+    // Banner ads
     BannerView bannerView;
 
+    // Exit on back press (twice)
+    private long pressTime;
+
+
     @Override
-    public void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main_activity_layout);
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
-        textLabel = findViewById(R.id.textLabel);
-        input = findViewById(R.id.text_input);
-        output = findViewById(R.id.text_translated);
-        arrow = findViewById(R.id.arrow);
 
-        // load banner ads
-        bannerView = findViewById(R.id.banner_view);
-        bannerView.setAdId("testw6vs28auh3");
-        bannerView.setBannerAdSize(BannerAdSize.BANNER_SIZE_360_57);
-        bannerView.setBannerRefresh(60);
-        AdParam adParam = new AdParam.Builder().build();
-        bannerView.loadAd(adParam);
-
-        // Initialize API Key
-        MLApplication.getInstance().setApiKey("your api key");
-        // Initialize Text Recognition Settings
-        initializeSettings();
-
-        // select target language
+        // 1. Call layout elements on screen
+        label = findViewById(R.id.text_label);
         spinner = findViewById(R.id.spinner);
+        imgBtn = findViewById(R.id.img_btn);
+        translateBtn = findViewById(R.id.translate_btn);
+        copyBtn = findViewById(R.id.copy_btn);
+        input = findViewById(R.id.input_text);
+        output = findViewById(R.id.output_text);
+
+
+        // 2. Initialize API key
+        MLApplication.getInstance().setApiKey("DAEDANDUoTrQU0fCwSqscyr6xK1CUSQSjWBtu+lRH25CBlQmlPL9nU76y+YqZdTElKtk8XYGKJemou0IZRWku5vQd7mavva3R0TU6Q==");
+
+        // 3. Start translation when click on button
+        translateBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                translate(input.getText().toString());
+            }
+        });
+
+
+        // 4. Copy result text when click on button
+        copyBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                copy(output.getText().toString());
+            }
+        });
+
+
+        // 5. Set dropdown list containing 5 languages
+        //    React to user input changes - realtime update
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this, R.array.languages_array, android.R.layout.simple_spinner_item);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spinner.setAdapter(adapter);
         spinner.setOnItemSelectedListener(this);
 
-        // extract text from image
-        imageButton = findViewById(R.id.img_btn);
-        imageButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                textFromImage();
-            }
-        });
 
-        // translate text
-        translateButton = findViewById(R.id.text_translate_btn);
-        translateButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                translateText(input.getText().toString());
-            }
-        });
-
-        // copy text to clipboard
-        copyButton = findViewById(R.id.copy_btn);
-        copyButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                copyToClipBoard(output.getText().toString());
-            }
-        });
-
-        // keep updating language and translate
+        // to detect the language and translate after user changes text
         input.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence charSequence, int i, int i1, int i2) {
@@ -140,56 +131,115 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
 
             @Override
             public void onTextChanged(CharSequence charSequence, int i, int i1, int i2) {
-                handler.removeCallbacks(inputChecker);
             }
 
             @Override
             public void afterTextChanged(Editable editable) {
+                // Detect and Translate
                 if (editable.length() > 0){
-                    lastTextEdit = System.currentTimeMillis();
-                    handler.postDelayed(inputChecker, delay);
+                    handler.postDelayed(runnable, delay);
                 }
+
+            }
+        });
+
+
+        // 6. Text extraction from image when click on button
+        //    Initialize Text Recognition Settings
+        initializeSettings();
+        imgBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                textFromImage();
+            }
+        });
+
+
+
+        // 7. Set up banner ads
+        bannerView = findViewById(R.id.banner_view);
+        bannerView.setAdId("testw6vs28auh3");
+        bannerView.setBannerAdSize(BannerAdSize.BANNER_SIZE_360_57);
+        bannerView.setBannerRefresh(60);
+        AdParam param = new AdParam.Builder().build();
+        bannerView.loadAd(param);
+
+    }
+
+
+
+    private void translate(final String raw){
+        // ML Kit realtime translation
+        // raw = user input text
+        MLRemoteTranslateSetting setting = new MLRemoteTranslateSetting.Factory()
+                .setSourceLangCode(sourceLanguage)  // ISO 639-1
+                .setTargetLangCode(targetLanguage)
+                .create();
+
+        final MLRemoteTranslator translator = MLTranslatorFactory.getInstance().getRemoteTranslator(setting);
+
+        // Obtain languages from cloud
+        MLTranslateLanguage.getCloudAllLanguages().addOnSuccessListener(new OnSuccessListener<Set<String>>() {
+            @Override
+            public void onSuccess(Set<String> strings) {
+                Log.i("CLOUD LANGUAGES", "onSuccess");
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(Exception e) {
+                Log.i("CLOUD LANGUAGES", "onFailure");
+            }
+        });
+
+        languageDetection();
+        Task<String> translateTask = translator.asyncTranslate(raw);
+        translateTask.addOnSuccessListener(new OnSuccessListener<String>() {
+            @Override
+            public void onSuccess(String result) {
+                // Translation success
+                output.setText(result);
+            }
+        }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(Exception e) {
+                Toast.makeText(getBaseContext(), "Translation failed", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    @Override
-    public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
-        // update target language on select
-        targetLanguage = languages[i];
-        // automatically translate
-        translateText(input.getText().toString());
+
+    private void copy(String result){
+        // result = translated text
+        try {
+            ClipboardManager clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            ClipData data = ClipData.newPlainText("Translated result", result);
+            clipboardManager.setPrimaryClip(data);
+            Toast.makeText(getBaseContext(), "Copied", Toast.LENGTH_SHORT).show();
+        } catch (Exception e){
+            Toast.makeText(getBaseContext(), "Couldn't copy", Toast.LENGTH_SHORT).show();
+        }
     }
 
-    @Override
-    public void onNothingSelected(AdapterView<?> adapterView) {}
 
-
-    private Runnable inputChecker = new Runnable() {
-        @Override
-        public void run() {
-            // automatically detect language while app running
-            languageDetect();
-            translateText(input.getText().toString());
-        }
-    };
-
-    // detect input language
-    private void languageDetect(){
+    private void languageDetection(){
+        // ML Kit language detection
+        // automatically detect and obtain language code
+        // update source language for translation
         MLRemoteLangDetector detector = MLLangDetectorFactory.getInstance().getRemoteLangDetector();
-        Task<String> task = detector.firstBestDetect(input.getText().toString());
-        task.addOnSuccessListener(new OnSuccessListener<String>() {
+        Task<String> detectionTask = detector.firstBestDetect(input.getText().toString());
+        detectionTask.addOnSuccessListener(new OnSuccessListener<String>() {
             @Override
             public void onSuccess(String s) {
                 // language detection success
-                // Toast.makeText(getBaseContext(), s, Toast.LENGTH_SHORT).show();
-                // set source language
                 sourceLanguage = s;
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override
             public void onFailure(Exception e) {
-                // language detection failed
+                // detection failed
+                if (input.getText().length() > 0){
+                    Toast.makeText(getBaseContext(), "Language detection failed", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -198,7 +248,9 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
         }
     }
 
+
     private void textFromImage(){
+        // Create chooser intent and let user to pick an image from gallery
         Intent intent = new Intent();
         intent.setType("image/*");
         intent.setAction(Intent.ACTION_PICK);
@@ -209,128 +261,113 @@ public class MainActivity extends AppCompatActivity implements AdapterView.OnIte
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == 20 && resultCode == Activity.RESULT_OK && null != data){
+        if (requestCode == 20 && resultCode == RESULT_OK && data != null){
             imageUri = data.getData();
             frame = null;
             try {
                 frame = MLFrame.fromFilePath(this, imageUri);
-                // analyze and extract text from image
                 startAnalysis();
-            } catch (IOException e){
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    // settings for text recognition
     private void initializeSettings(){
-        List<String> languageList = new ArrayList();
-        for(String lang:languages){
+        // Text recognition
+        List<String> languageList = new ArrayList<>();
+        for (String lang:languages){
             languageList.add(lang);
         }
 
-        // Create ML Text Settings
-        MLRemoteTextSetting mlRemoteTextSetting = new MLRemoteTextSetting.Factory()
-                .setTextDensityScene(MLRemoteTextSetting.OCR_LOOSE_SCENE)
+        MLRemoteTextSetting setting = new MLRemoteTextSetting.Factory()
                 .setLanguageList(languageList)
                 .setBorderType(MLRemoteTextSetting.ARC)
+                .setTextDensityScene(MLRemoteTextSetting.OCR_COMPACT_SCENE)
                 .create();
 
-        textAnalyzer = MLAnalyzerFactory.getInstance().getRemoteTextAnalyzer(mlRemoteTextSetting);
+        analyzer = MLAnalyzerFactory.getInstance().getRemoteTextAnalyzer(setting);
     }
 
-    // start text recognition
-    private void startAnalysis(){
-        // ProgressDialog while text recognition
-        progressDialog = ProgressDialog.show(this, "Text Extraction", "Recognition in progress...");
 
-        Task<MLText> textTask = textAnalyzer.asyncAnalyseFrame(frame);
-        textTask.addOnSuccessListener(new OnSuccessListener<MLText>() {
+    private void startAnalysis(){
+        // Text recognition
+        progressDialog = ProgressDialog.show(this, "Text extraction", "Recognition is in progress...");
+
+        Task<MLText> task = analyzer.asyncAnalyseFrame(frame);
+        task.addOnSuccessListener(new OnSuccessListener<MLText>() {
             @Override
             public void onSuccess(MLText mlText) {
-                // Text Recognition Success
-                Toast.makeText(getBaseContext(), "Recognition success!", Toast.LENGTH_SHORT).show();
-                recognizedText = mlText.getStringValue();
+                // recognition success - put text to input field, translate
+                String recognizedText = mlText.getStringValue();
                 progressDialog.dismiss();
                 stopAnalyzer();
-                // place recognized text in input field
                 input.setText(recognizedText);
-                // translate recognized text
-                translateText(recognizedText);
+                translate(recognizedText);
             }
         }).addOnFailureListener(new OnFailureListener() {
             @Override
             public void onFailure(Exception e) {
-                // Text recognition failed
-                try {
-                    MLException mlException = (MLException) e;
-                    int errorCode = mlException.getErrCode();
-                    String errorMessage = mlException.getMessage();
-                    Log.i("Recognition", errorCode + errorMessage);
-                    Toast.makeText(getBaseContext(), "Recognition failed!", Toast.LENGTH_SHORT).show();
-                    progressDialog.dismiss();
-                    stopAnalyzer();
-                } catch (Exception error){
-                }
+                MLException mlException = (MLException) e;
+                int errorCode = mlException.getErrCode();
+                String errorMessage = mlException.getMessage();
+                Log.i("Text recognition", "onFailure: " + errorCode + errorMessage);
+                progressDialog.dismiss();
+                stopAnalyzer();
+                Toast.makeText(getBaseContext(), "Text recognition failed", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
+
     private void stopAnalyzer(){
-        // stop the analyzer after recognition done
-        if (textAnalyzer != null){
+        // Text recognition
+        if (analyzer != null){
             try {
-                textAnalyzer.stop();
-            } catch (IOException e){
+                analyzer.stop();
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    private void translateText(final String raw){
-        MLRemoteTranslateSetting setting = new MLRemoteTranslateSetting.Factory()
-                .setSourceLangCode(sourceLanguage)
-                .setTargetLangCode(targetLanguage)
-                .create();
-        final MLRemoteTranslator translator = MLTranslatorFactory.getInstance().getRemoteTranslator(setting);
 
-        MLTranslateLanguage.getCloudAllLanguages().addOnSuccessListener(new OnSuccessListener<Set<String>>() {
-            @Override
-            public void onSuccess(Set<String> strings) {
-                Log.i("GetCloudLanguages", "Success");
-            }
-        });
-
-        final Task<String> task = translator.asyncTranslate(raw);
-        task.addOnSuccessListener(new OnSuccessListener<String>() {
-            @Override
-            public void onSuccess(String result) {
-                // translation success
-                output.setText(result);
-            }
-        }).addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(Exception e) {
-                // translation failed
-                try {
-                    MLException mlException = (MLException) e;
-                    int errorCode = mlException.getErrCode();
-                    String errorMessage = mlException.getMessage();
-                } catch (Exception error){
-                    Toast.makeText(getBaseContext(), "Translation failed!", Toast.LENGTH_SHORT).show();
-                }
-            }
-        });
+    // TODO: When user selected a language in dropdown list
+    // Update target language
+    @Override
+    public void onItemSelected(AdapterView<?> adapterView, View view, int position, long l) {
+        targetLanguage = languages[position];
+        translate(input.getText().toString());
+        // Toast.makeText(getBaseContext(), targetLanguage, Toast.LENGTH_SHORT).show();
     }
 
-    private void copyToClipBoard(String text){
-        try {
-            ClipboardManager clipboardManager = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
-            ClipData clipData = ClipData.newPlainText("Translated text", text);
-            clipboardManager.setPrimaryClip(clipData);
-            Toast.makeText(getBaseContext(), "Copied", Toast.LENGTH_SHORT).show();
-        } catch (Exception e){
-            Toast.makeText(getBaseContext(), "Couldn't copy! Please try again.", Toast.LENGTH_SHORT).show();
+    @Override
+    public void onNothingSelected(AdapterView<?> adapterView) {
+    }
+
+
+    // TODO: Let translation always run (realtime)
+    // Handler and Runnable
+    private final Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+            translate(input.getText().toString());
         }
+    };
+
+    @Override
+    public void onBackPressed() {
+        if (pressTime + 2000 > System.currentTimeMillis()){
+            super.onBackPressed();
+            finish();
+        } else {
+            Toast.makeText(getBaseContext(), "Press back again to exit", Toast.LENGTH_SHORT).show();
+        }
+        pressTime = System.currentTimeMillis();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
     }
 }

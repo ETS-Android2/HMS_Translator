@@ -54,5 +54,5 @@ dependencies {
 
     
     // ads sdk
-    implementation 'com.huawei.hms:ads-lite:13.4.50.300'
+    implementation 'com.huawei.hms:ads:3.4.51.300'
 }
